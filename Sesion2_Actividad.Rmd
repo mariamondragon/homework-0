@@ -1,0 +1,298 @@
+---
+title: "Análisis COVID"
+author: "Maria de los Angeles Mondragón Rangel"
+date: "2024-06-02"
+output: 
+    html_document: 
+    theme: cerulean
+    ioslides_presentation:
+    widescreen: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+## Chunk de carga de paquetes, definición de variables, etc.
+
+library(coronavirus)
+library(tidyverse)
+library(plotly)
+library(kableExtra)
+casos <- coronavirus::coronavirus
+```
+
+## Antecedentes   
+
+<p><div class="text-justify"> 
+
+El COVID es un virus que forma parte de la familia de virus **“Coronavirus”**, que reciben su nombre por su forma en **“corona”**. Es el más reciente de los coronavirus, identificado en el 2019 y causa la enfermedad llamada _**COVID-19**_.
+
+Existen 7 coronavirus capaces de producir enfermedad en humanos.
+
+* Los coronavirus **HCoV-229E**, **HCoV-OC43**, **HCoV-NL63** y **HCoV-HKU1** son los más frecuentes y circulan entre humanos, suelen causar resfriados leves o enfermedades diarreicas en lactantes.
+* Los coronavirus **MERS-CoV**, **SARS-CoV** y **SARS-CoV-2**, circulaban entre animales y mutaron hasta tener la capacidad de infectar al ser humano. Estos 3 virus pueden causar enfermedad respiratoria más grave.
+
+<center>
+![__FOTO: NIAID/PLANET PIX VIA ZUMA PRESS/ CORDON PRESS__](imgs/COVID2.jpg)</center>
+
+___
+El primer caso detectado en nuestro país ocurrió el 27 de febrero del 2020 en el Instituto Nacional de Enfermedades Respiratorias en la Ciudad de México, en un paciente con antecedente de haber viajado a Italia, y el primer fallecimiento ocurrió el día 18 de marzo. El 24 de marzo, con 475 casos confirmados, se decretó la Fase 2 de "contingencia sanitaria", con medidas más estrictas de distanciamiento social, confinamiento y restricción laboral. 
+
+## Materiales y métodos   
+
+El conjunto de datos sobre el coronavirus proporciona un resumen diario de los casos de _**COVID-19**_ por ubicación geográfica (es decir, país/provincia). Incluye el total diario de casos confirmados, fallecidos y recuperados. 
+
+El conjunto de datos tiene los siguientes campos:
+
+- date: Fecha del resumen
+- province: Provincia o estado, cuando corresponda.
+- country: Nombre del país o región
+- lat: Punto de latitud
+- long: Punto de longitud
+- type: Tipo de caso (es decir, confirmado, muerte)
+- cases: Número de casos diarios (correspondiente al tipo de caso)
+- uid: Código de país
+- iso2: Identificadores de código de país asignados oficialmente con dos letras
+- iso3: Identificadores de código de país asignados oficialmente con esa letra
+- code3: Código de país de la ONU
+- combined_key: País y provincia (si corresponde)
+- population: Población del país o provincia
+- continent_name: Nombre del continente
+- continent_code: Código de continente
+
+Fuente
+Sitio web sobre coronavirus del Centro de Ciencia e Ingeniería de Sistemas de la Universidad Johns Hopkins (JHU CCSE).
+
+En epidemiología es primordial la medición, por ello es necesario un conocimiento detallado de las diferentes medidas que se estiman en esta disciplina, porque de esto depende la interpretación de la información y, lo más importante, las decisiones que se tomen.
+
+Para nuestro caso de estudio se calcularán la Tasa de Incidencia y la Tasa de Mortalidad que se definen a continuación. 
+
+### Tasa de Incidencia
+
+La principal propiedad de esta medida es determinar los casos nuevos que se presentan en una población en un tiempo determinado, de ahí que para su cálculo se requiere un periodo de seguimiento.
+
+Para calcular la tendencia de una enfermedad debe tenerse un registro del número de casos que se presentan en la población cada año. Con los datos recabados se obtendrá el numerador de la tasa anual, el cual se dividirá en la población en riesgo para los años de estudio por cada 100,000 habitantes.
+
+* $TasaDeIncidencia = NuevosCasos / Población \times 100,000$
+
+### Tasa de Mortalidad 
+
+Refleja la probabilidad de que un individuo infectado muera debido a la enfermedad. Para nuestro caso de estudio lo expresaremos como el número de muertes por cada 100,000 habitantes.
+
+
+* $TasaDeMortalidad = Defunciones / Población \times 100,000$
+
+## Resultados
+
+#### Nuevos casos confirmados en el tiempo (línea de tiempo sobre casos a nivel mundial).
+
+```{r confimados_mundial}
+casos1 <- casos |> 
+            # filtra tipo de dato que se quiere ver
+            filter(type == "confirmed") |> 
+            # agrupar con dplyr para poder resumir los datos
+          group_by(date) |> 
+              summarise(casos = sum(cases, na.rm = TRUE)) |> 
+              # graficar con ggplot
+              ggplot(aes(x = date, y = casos))+
+              geom_line(color = "coral2")+
+              labs(title = "Nuevos casos confirmados a nivel mundial",
+              x = "Fecha",
+              y = "# de nuevos casos")
+plotly::ggplotly(casos1)
+```
+
+#### Acumulativo de nuevos casos confirmados en el tiempo.
+
+```{r casos_confirmados_acumulado}
+# guardar los datos de nuevos casos
+temp1 <- casos |> 
+            # filtrar tipo de datos que se quieren ver
+            filter(type == "confirmed") |> 
+            # agrupar para resumir
+          group_by(date) |> 
+            summarise(casos = sum(cases, na.rm = TRUE))
+            # agregar columna de datos acumulativos
+            temp1$acumulado = cumsum(temp1$casos)
+
+# graficar
+casos2 <- temp1 |> 
+              ggplot(aes(x = date, y = acumulado))+
+              geom_line(color = "coral2")+
+              labs(title = "Acumulativo de nuevos casos confirmados",
+              x = "Fecha",
+              y = "# de nuevos casos")
+plotly::ggplotly(casos2)
+```
+
+#### Defunciones reportadas a nivel mundial.
+
+```{r defunciones_mundial}
+casos3 <- casos |> 
+            # filtra tipo de dato que se quiere ver
+            filter(type == "death") |> 
+            # agrupar con dplyr para poder resumir los datos
+            group_by(date) |> 
+              summarise(casos = sum(cases, na.rm = TRUE)) |> 
+              # graficar con ggplot
+              ggplot(aes(x = date, y = casos))+
+              geom_line(color = "turquoise2")+
+              labs(title = "Defunciones a nivel mundial",
+              x = "Fecha",
+              y = "# de defunciones")
+plotly::ggplotly(casos3)
+```
+
+
+#### Defunciones acumuladas a nivel mundial
+
+```{r defunciones_acumuladas_mundial}
+temp1 <- casos |> 
+            # filtrar tipo de datos que se quieren ver
+            filter(type == "death") |> 
+            # agrupar para resumir
+            group_by(date) |> 
+            summarise(casos = sum(cases, na.rm = TRUE))
+
+# agregar columna de datos acumulativos
+temp1$acumulado = cumsum(temp1$casos)
+
+# graficar
+casos4 <- temp1 |> 
+            ggplot(aes(x = date, y = acumulado))+
+            geom_line(color = "turquoise2")+
+            labs(title = "Acumulativo de defunciones",
+            x = "Fecha",
+            y = "# de defunciones")+
+            theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+plotly::ggplotly(casos4)
+```
+
+#### Casos confirmados y defunciones en México (línea de tiempo sobre casos confirmados en México).
+
+```{r casos_mexico}
+temp_mx <- casos |> 
+              # filtrar tipo de datos que se quieren ver
+              filter(type != "recovery") |> 
+              filter(country == "Mexico") |> 
+              # agrupar para resumir
+              group_by(date, type) |> 
+              summarise(casos = sum(cases, na.rm = TRUE)) |> 
+              pivot_wider(names_from = "type", values_from = "casos")
+
+# agregar columna de datos acumulativos
+temp_mx$acumulado_confirmado = cumsum(temp_mx$confirmed)
+temp_mx$acumulado_muerte = cumsum(temp_mx$death)
+
+# graficar
+casos5 <- temp_mx |> 
+            pivot_longer(cols = c(confirmed:acumulado_muerte),
+            names_to = "Variable", values_to = "Cuenta") |> 
+            filter(Variable == "confirmed" | Variable == "death") |> 
+            ggplot(aes(x = date, y = Cuenta, color = Variable))+
+            geom_line()+
+            labs(title = "Casos confirmados y defunciones en México",
+            x = "Fecha",
+            y = "# de casos")
+plotly::ggplotly(casos5)
+```
+
+#### Casos acumulados en México.
+
+```{r defunciones_mexico}
+# graficar
+casos6 <- temp_mx |> 
+            pivot_longer(cols = c(confirmed:acumulado_muerte),
+            names_to = "Variable", values_to = "Cuenta") |> 
+            filter(Variable == "acumulado_confirmado" | Variable == "acumulado_muerte") |> 
+            ggplot(aes(x = date, y = Cuenta, color = Variable))+
+            geom_line()+
+            labs(title = "Casos confirmados y defunciones en México",
+            x = "Fecha",
+            y = "# de casos")
+plotly::ggplotly(casos5)
+```
+
+#### Tasa de incidencia a nivel mundial por país, por año.
+
+```{r tasa_incidencia_mundial}
+T_Incidencia <- casos |> 
+                  # filtrar tipo de datos 
+                  filter(type == "confirmed") |> 
+                  # agrupar para después resumir los datos
+                  group_by(date, country) |> 
+                  summarise(casos = sum(cases, na.rm = TRUE),
+                  poblacion = sum(population, na.rm = TRUE)) |> 
+                  # agregar columna de año
+                  mutate(año = format(date, "%Y")) |> 
+                  # deshacer los grupos anteriores para agrupar pero ahora por año
+                ungroup() |> 
+                  group_by(año, country) |> 
+                  summarise(casos = sum(casos, na.rm = TRUE),
+                  poblacion = mean(poblacion, na.rm = TRUE)) |> 
+                  # filtrar países con población 0, para evitar NaN e Infinitos
+                  filter(poblacion > 0) |> 
+                  # calcular tasa de incidencia
+                  mutate(tasa_incidencia = casos / poblacion * 100000)
+DT::datatable(T_Incidencia)
+```
+
+#### Tasa de mortalidad a nivel mundial por país
+
+```{r tasa_mortalidad_mundial}
+T_Mortalidad <- casos |> 
+                  # filtrar tipo de datos 
+                  filter(type == "death") |> 
+                  # agrupar para después resumir los datos
+                  group_by(date, country) |> 
+                  summarise(casos = sum(cases, na.rm = TRUE),
+                  poblacion = sum(population, na.rm = TRUE)) |> 
+                  # agregar columna de año
+                  mutate(año = format(date, "%Y")) |> 
+                  # deshacer los grupos anteriores para agrupar pero ahora por año
+                ungroup() |> 
+                  group_by(año, country) |> 
+                  summarise(casos = sum(casos, na.rm = TRUE),
+                  poblacion = mean(poblacion, na.rm = TRUE)) |> 
+                  # filtrar países con población 0, para evitar NaN e Infinitos
+                  filter(poblacion > 0) |> 
+                  # calcular tasa de mortalidad
+                  mutate(tasa_mortalidad = casos / poblacion * 100000)
+DT::datatable(T_Mortalidad)
+```
+
+#### Valores de tasa de incidencia y mortalidad para México
+
+```{r tasa_incidencia_mexico}
+# filtrar información a nivel país
+T_Incidencia_Mexico <- T_Incidencia |> 
+                          filter(country == "Mexico")
+                          kableExtra::kbl(T_Incidencia_Mexico) |> 
+                          kable_material_dark() 
+```
+
+```{r tasa_mortalidad_mexico}
+# filtrar información a nivel país
+T_Mortalidad_Mexico <- T_Mortalidad |> 
+                        filter(country == "Mexico")
+                        kableExtra::kbl(T_Mortalidad_Mexico) |> 
+                        kable_material_dark() 
+```
+## Conclusiones
+
+En este reporte se puede acceder a los datos a nivel mundial, para comprender más sobre el comportamiento de la pandemia, la informacón ha sido recabada desde las primeras semanas del brote además se pueden encontrar diversas gráficas que nos ayudana comprender mejor el comportamiento de la propagación del virus al rededor del mundo.
+
+Las gráficas nos muestran como rápidamente el _**COVID-19**_ incrementó casos de contagios y defunciones de una manera alarmante durante los primeros meses del 2020, con el paso del tiempo se observa que la tasa de incidencia aumenta de forma exponencial, pero para la tasa de mortalidad el comportamiento es diferente, ya que va disminuyendo desde mediados del 2022 y hasta princios del 2023, donde nuevamente se ve un aumento en las defunciones pero no se mantiene de forma prolongada.
+
+## Bibliografía 
+
+* https://coronavirus.gob.mx/wp-content/uploads/2023/08/Info-02-23-Int_COVID-19.pdf
+* Con la colaboración de diversas organizaciones alrededor del mundo han estado recolectando datos para que los gobiernos puedan monitorear y aprender de esta pandemia. Notablemente, el Centro de Ciencia e Ingeniería de Sistemas de la Universidad Johns Hopkins creó un [repositorio de datos de acceso público](https://github.com/RamiKrispin/coronavirus) para consolidar esta información de fuentes como la OMS, los Centros para el Control y la Prevención de Enfermedades (CDC) y el Ministerio de Salud de múltiples países.
+
+</div></p>
+
+___
+
