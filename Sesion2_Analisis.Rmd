@@ -1,0 +1,147 @@
+---
+title: "Visualización de datos COVID19 usando R"
+author: "Muhammad Ahmed"
+date: "2024-02-02"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, include=FALSE}
+library(tidyverse)
+```
+
+## De epidemia a pandemia
+
+![Imagen de coronavirus](imgs/COVID.jpg){width="50%"}
+
+En diciembre de 2019, el coronavirus COVID-19 fue identificado por primera vez en la región de Wuhan, China. Para el 11 de marzo de 2020, la Organización Mundial de la Salud (OMS) clasificó el brote de COVID-19 como una pandemia. Mucho ha ocurrido en los meses intermedios, con brotes importantes en Irán, Corea del Sur e Italia.
+
+Sabemos que el COVID-19 se propaga a través de gotas respiratorias, tales como por toser, estornudar o hablar. Pero, ¿qué tan rápidamente se propagó el virus a través del globo? ¿Y podemos ver algún efecto de las políticas implementadas a nivel nacional, como cierres y cuarentenas?
+
+Afortunadamente, organizaciones alrededor del mundo han estado recolectando datos para que los gobiernos puedan monitorear y aprender de esta pandemia. Notablemente, el Centro de Ciencia e Ingeniería de Sistemas de la Universidad Johns Hopkins creó un repositorio de datos de acceso público (https://github.com/RamiKrispin/coronavirus) para consolidar esta información de fuentes como la OMS, los Centros para el Control y la Prevención de Enfermedades (CDC) y el Ministerio de Salud de múltiples países.
+
+En este cuaderno, visualizarás datos de COVID-19 desde las primeras semanas del brote para ver en qué momento este virus se convirtió en una pandemia global.
+
+Por favor, tenga en cuenta que la información y los datos respecto al COVID-19 se actualizan frecuentemente. Los datos utilizados en este proyecto fueron extraídos el 17 de marzo de 2020, y no deben considerarse como los más actualizados disponibles.
+
+```{r}
+casos_confirmados <- read_csv("./data/confirmed_cases_worldwide.csv")
+
+casos_confirmados
+```
+
+# Casos confirmados en el mundo
+## Subtitulo2
+### Subtitulo 3
+#### Subtitulo 4
+
+La tabla anterior muestra los casos confirmados acumulados de COVID-19 a nivel mundial por fecha. Leer solo números en una tabla hace difícil obtener una noción de la escala y el crecimiento del brote. Dibujemos un gráfico de líneas para visualizar los casos confirmados a nivel mundial.
+
+```{r}
+ggplot(casos_confirmados, aes(date, cum_cases))+
+  geom_line()+
+  ylab("Acumulado de casos confirmados")
+```
+
+## China, comparado con el resto del mundo
+
+El eje y en ese gráfico es bastante alarmante, con el número total de casos confirmados en todo el mundo acercándose a los 200,000. Más allá de eso, están ocurriendo algunas cosas extrañas: hay un salto inusual a mediados de febrero, luego la tasa de nuevos casos se ralentiza por un tiempo, para luego acelerarse nuevamente en marzo. Necesitamos profundizar para ver qué está sucediendo.
+
+Al principio del brote, los casos de COVID-19 estaban principalmente centrados en China. Vamos a graficar los casos confirmados de COVID-19 en China y el resto del mundo por separado para ver si nos ofrece alguna perspectiva.
+
+```{r}
+casos_china_vs_mundo <- read_csv("./data/confirmed_cases_china_vs_world.csv")
+
+glimpse(casos_china_vs_mundo)
+
+graf_acum_china_vs_mundo <- ggplot(casos_china_vs_mundo) +
+  geom_line(aes(date, cum_cases, color = is_china)) +
+  ylab("Cumulative confirmed cases")
+
+graf_acum_china_vs_mundo
+```
+
+## Tendencia en China
+
+Cuando intentamos evaluar cuán grandes serán los problemas futuros, necesitamos una medida de qué tan rápido está creciendo el número de casos. Un buen punto de partida es ver si los casos están creciendo más rápido o más lento que linealmente.
+
+Hay un claro aumento de casos alrededor del 13 de febrero de 2020, con el cambio en la notificación de casos en China. Sin embargo, un par de días después, el crecimiento de casos en China se ralentiza. ¿Cómo podemos describir el crecimiento de COVID-19 en China después del 15 de febrero de 2020?
+
+```{r}
+casos_china_vs_mundo |> 
+  filter(is_china == "China", date >= "2020-02-15") |> 
+  ggplot(aes(date, cum_cases))+
+  geom_line()+
+  geom_smooth(method = "lm", se = FALSE)+
+  ylab("Acumulado de casos confirmados")
+```
+
+## Tendencia en el resto del mundo
+
+Del gráfico anterior, la tasa de crecimiento en China es más lenta que lineal. Eso es una excelente noticia porque indica que China ha contenido el virus al menos en cierta medida a finales de febrero y principios de marzo.
+
+¿Cómo se compara el resto del mundo con el crecimiento lineal?
+
+```{r}
+casos_china_vs_mundo |> 
+  filter(is_china != "China", date >= "2020-02-15") |> 
+  ggplot(aes(date, cum_cases))+
+  geom_line()+
+  geom_smooth(method = "lm", se = FALSE)+
+  ylab("Acumulado de casos confirmados")
+```
+
+## Cambio en la escala de la gráfica
+
+Del gráfico anterior, podemos ver que una línea recta no se ajusta bien en absoluto, y el resto del mundo está creciendo mucho más rápido que de manera lineal. ¿Qué pasaría si añadiéramos una escala logarítmica al eje $y$?
+
+```{r}
+casos_china_vs_mundo |> 
+  filter(is_china != "China", date >= "2020-02-15") |> 
+  ggplot(aes(date, cum_cases))+
+  geom_line()+
+  geom_smooth(method = "lm", se = FALSE)+
+  ylab("Acumulado de casos confirmados")+
+  scale_y_log10()
+```
+
+Con la escala logarítmica, obtenemos un ajuste mucho más cercano a los
+datos. Desde el punto de vista de la ciencia de datos, un buen ajuste es
+una excelente noticia. Desafortunadamente, desde el punto de vista de
+la salud pública, eso significa que los casos de COVID-19 en el resto
+del mundo están creciendo a una tasa exponencial, lo cual es una
+terrible noticia.
+
+## ¿Qué países fuera de China han sido más afectados?
+
+No todos los países están siendo afectados por el COVID-19 de igual manera, y sería útil saber dónde en el mundo los problemas son mayores. Encontremos los países fuera de China con la mayor cantidad de casos confirmados en nuestro conjunto de datos.
+
+```{r}
+casos_confirmados_pais <- read_csv("./data/confirmed_cases_by_country.csv")
+
+top_10_casos_totales <- casos_confirmados_pais |> 
+  group_by(country) |> 
+  summarise(casos_totales = max(cum_cases)) |> 
+  top_n(10, casos_totales)
+
+top_10_casos_totales
+```
+
+## Gráfico de países más afectados
+
+Aunque el brote fue identificado por primera vez en China, solo hay un país de Asia Oriental (Corea del Sur) en la tabla anterior. Seis de los países listados (Francia, Alemania, Italia, España, Holanda y Suiza) están en Europa y comparten fronteras. Para obtener más contexto, podemos graficar los casos confirmados de estos países a lo largo del tiempo.
+
+```{r}
+casos_confirmados_pais |> 
+  filter(country %in% top_10_casos_totales$country, date >= "2020-02-15") |> 
+  group_by(country, date) |> 
+  summarise(casos_acumulados = max(cum_cases)) |>
+  ggplot(aes(date, casos_acumulados, color = country))+
+  geom_line()+
+  ylab("Acumulativo de casos confirmados")
+```
+
+## Créditos
+
+Este archivo es una traducción y adaptación del trabajo realizado por Muhammad Ahmed como parte de un proyecto de aprendizaje en DataCamp. El trabajo original se puede revisar en: https://www.kaggle.com/code/muhammadahmed68/visualizing-covid19-using-r/notebook y se ofrece bajo la licencia de Código Abierto [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
